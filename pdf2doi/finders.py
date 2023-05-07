@@ -7,8 +7,9 @@ this module.
 """
 from urllib.parse import unquote
 from itertools import accumulate
-from PyPDF2 import PdfFileReader, PdfFileWriter
+from PyPDF2 import PdfFileReader #, PdfFileWriter
 from pdfminer.high_level import extract_text
+import isbnlib
 
 import requests
 import pdftitle
@@ -160,28 +161,9 @@ def validate(identifier,what='doi'):
                 return True
         else: return False
 
-    #elif what=='isbn':
-    #    # code taken from https://www.oreilly.com/library/view/regular-expressions-cookbook/9781449327453/ch04s13.html
-    #    # Remove non ISBN digits, then split into a list
-    #    chars = list(re.sub("[- ]|^ISBN(?:-1[03])?:?", "", identifier))
-    #    # Remove the final ISBN digit from `chars`, and assign it to `last`
-    #    last = chars.pop()
-    #    if len(chars) == 9:
-    #        # Compute the ISBN-10 check digit
-    #        val = sum((x + 2) * int(y) for x,y in enumerate(reversed(chars)))
-    #        check = 11 - (val % 11)
-    #        if check == 10:
-    #            check = "X"
-    #        elif check == 11:
-    #            check = "0"
-    #    else:
-    #        # Compute the ISBN-13 check digit
-    #        val = sum((x % 2 * 2 + 1) * int(y) for x,y in enumerate(chars))
-    #        check = 10 - (val % 10)
-    #        if check == 10:
-    #            check = "0"
-    #    if (str(check) == last):
-    #        return True
+    elif what=='isbn':
+        result = isbnlib.meta(isbn, service='default')
+
     return False
 
 
@@ -236,31 +218,14 @@ def extract_doi_from_text(text,version=0):
         pass
     return []
 
-#def extract_isbn_from_text(text,version=0):
-#    """
-#    It looks for a ISBN in the input argument 'text', by using the regexp specified by isbn_regexp[version],
-#    where isbn_regexp is a list of strings defined in patterns.py and 'version' is an integer value.
+def extract_isbn_from_text(text,version=0):
 
-#    Parameters
-#    ----------
-#    text : string
-#        Text to analyse
-#    version : integer, optional
-#        Numerical value defined between 0 and len(doi_regexp)-1. It specifies which element of the list
-#        isbn_regexp is used for the regular expression
-
-#    Returns
-#    -------
-#    isbn_list : list
-#        It returns a list of all ISBNs found (or empty list if no one was found)
-
-#    """    
-#    try:
-#        isbns = re.findall(isbn_regexp[version],text,re.I)
-#        return isbns
-#    except:
-#        pass
-#    return []
+   try:
+       isbn = libisbn(text)
+       return isbn
+   except:
+       pass
+   return []
 
 def find_identifier_in_google_search(query,func_validate,numb_results):
     headers = {"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.97 Safari/537.36"}
@@ -324,6 +289,13 @@ def find_identifier_in_text(texts,func_validate):
         if isinstance(text, bytes):
             text = text.decode()
 
+        for v in range(len(isbn_regexp)):
+           identifiers = extract_isbn_from_text(text,version=v)
+           for identifier in identifiers:
+               validation = func_validate(identifier,'isbn')
+               if validation:
+                   return identifier,'ISBN', validation
+
         #First we look for DOI
         for v in range(len(doi_regexp)):
             identifiers = extract_doi_from_text(text,version=v)
@@ -346,12 +318,7 @@ def find_identifier_in_text(texts,func_validate):
                     return identifier,'arxiv ID', validation
 
         ##Then we look for ISBNs
-        #for v in range(len(isbn_regexp)):
-        #    identifiers = extract_isbn_from_text(text,version=v)
-        #    for identifier in identifiers:
-        #        validation = func_validate(identifier,'isbn')
-        #        if validation:
-        #            return identifier,'isbn', validation
+
 
     return None, None, None
 
@@ -515,101 +482,6 @@ def get_pdf_text(file,reader):
                 logger.error("An error occured while loading the document text with textract. The pdf version might be not supported.")
                 logger.error("Error from textract: " + str(e))
     return text
-
-def add_metadata(target,key,value):
-    """Given a pdf file or a folder identified by the input variable target, it adds a metadata with label equal to key
-    and containing the content of the input variable value to all pdf files specified by target (either a single file or
-    all the pdf files in a folder). 
-
-    Parameters
-    ----------
-    target : string
-        a valid path to a pdf file or a folder
-    key : string
-    value : string
-    Returns
-    -------
-    True if the the metadata was added succesfully, false otherwise
-    """
-    list_files = []
-    if  os.path.isdir(target): #if target is a folder, we populate the list list_files with all the pdf files contained in this folder
-        logger.info(f"Looking for pdf files in the folder {target}...")
-        pdf_files = [f for f in os.listdir(target) if (f.lower()).endswith('.pdf')]
-        numb_files = len(pdf_files)
-        if len(pdf_files) == 0:
-            logger.error("No pdf files found in this folder.")
-            return None
-        logger.info(f"Found {numb_files} pdf files.")
-        if not(target.endswith(config.get('separator'))): #Make sure the path ends with "\" or "/" (according to the OS)
-            target = target + config.get('separator')
-        for f in pdf_files:
-            list_files.append(target + f)
-    else:
-        list_files = [target]
-
-    for f in list_files:
-        logger.info(f"Trying to add the tag \'{key}\'-> \'{value}\' into the metadata of the file \'{f}\'...")
-        try:
-            file = open(f, 'rb') 
-        except (FileNotFoundError, IOError):
-            msg = "File not found."
-            logger.error(msg)
-            return False, msg
-        try:
-            pdf = PdfFileReader(f,strict=False)
-        except:
-            msg = "It was not possible to open the file with PyPDF2. Is this a valid pdf file?"
-            logger.error(msg)
-            return False, msg
-        try:
-            writer = PdfFileWriter()
-            writer.appendPagesFromReader(pdf)
-            metadata = pdf.getDocumentInfo() #Extract all the current info
-            metadata_dict = dict(metadata)   #Convert them to a regular python dictionary
-            metadata_dict[key] = value       #Add the new info
-            try:                             #Add all infos to a "new" file
-                for k, v in metadata_dict.items():
-                    try:
-                        writer.add_metadata({
-                            k: v
-                        })
-                    except Exception as e: 
-                        #logger.error("Error from PyPDF2 when parsing pre-existing metadata: " + str(e))
-                        pass    
-            except Exception as e:                
-                #logger.error("Error when parsing pre-existing metadata: " + str(e))  
-                pass
-
-            #Overwrite the file
-            fout = open(f, 'ab') 
-            writer.write(fout)
-            file.close()
-            fout.close()
-            logger.info(f"The tag \'{key}\'-> \'{value}\' was added succesfully to the metadata of the file \'{f}\'...")
-        except Exception as e:
-            logger.error("Error from PyPDF2: " + str(e))
-            msg = f"An error occured while trying to write the tag \'{key}\'-> \'{value}\'  into the metadata of the file \'{f}\'. Maybe the file is open elsewhere?"
-            logger.error(msg)
-            return False, msg
-
-def add_found_identifier_to_metadata(target,identifier):
-    """Given a pdf file or a folder identified by the input variable target, it adds a metadata with label '/pdf2doi_identifier'
-    and containing the content of the input variable identifier to all pdf files specified by target (either a single file or
-    all the pdf files in a folder). This can be useful to make sure that the next time
-    this same pdf is analysed, the identifier is found more easily.
-    It can also be useful when one want to reset to '' the '/pdf2doi_identifier' of all pdf files in a certain folder.
-
-    Parameters
-    ----------
-    target : string
-        a valid path to a pdf file or a folder
-    identifier : string
-        a valid identifier, which will be stored in the pdf metadata with name '/pdf2doi_identifier'
-    Returns
-    -------
-    True if the the metadata was added succesfully, false otherwise
-    """
-    add_metadata(target,key='/pdf2doi_identifier',value=identifier)
 
 
 ######## End first part ######## 
