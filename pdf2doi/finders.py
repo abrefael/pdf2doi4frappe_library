@@ -289,12 +289,11 @@ def find_identifier_in_text(texts,func_validate):
         if isinstance(text, bytes):
             text = text.decode()
 
-        for v in range(len(isbn_regexp)):
-           identifiers = extract_isbn_from_text(text,version=v)
-           for identifier in identifiers:
-               validation = func_validate(identifier,'isbn')
-               if validation:
-                   return identifier,'ISBN', validation
+        identifiers = extract_isbn_from_text(text)
+        for identifier in identifiers:
+            validation = func_validate(identifier,'isbn')
+            if validation:
+                return identifier,'ISBN', validation
 
         #First we look for DOI
         for v in range(len(doi_regexp)):

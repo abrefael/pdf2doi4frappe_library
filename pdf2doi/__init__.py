@@ -28,6 +28,6 @@ config.set('verbose',config.get('verbose')) #This is a quick and dirty way (to i
 from .main import pdf2doi, pdf2doi_singlefile
 from .finders import *
 #from .bibtex_makers import *
-from .utils_registry import install_right_click, uninstall_right_click
+# from .utils_registry import install_right_click, uninstall_right_click
 
 
