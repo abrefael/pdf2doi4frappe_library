@@ -18,9 +18,9 @@ config.ReadParamsINIfile()  #Load all current configuration from the .ini file. 
 reader_libraries = ['PyPdf','pdfminer'] 
 # Using PyPdf before pdfminer makes sure that, in arxiv pdf files, the DOI which is sometimes written on the left margin of the first page is correctly detected
 
-is_textract_installed = importlib.util.find_spec('textract')
-if is_textract_installed:
-    reader_libraries. append('textract')
+# is_textract_installed = importlib.util.find_spec('textract')
+# if is_textract_installed:
+    # reader_libraries. append('textract')
     
 
 config.set('verbose',config.get('verbose')) #This is a quick and dirty way (to improve in the future) to make sure that the verbosity of the pdf2doi logger is properly set according
