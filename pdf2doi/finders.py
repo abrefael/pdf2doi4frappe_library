@@ -162,7 +162,7 @@ def validate(identifier,what='doi'):
         else: return False
 
     elif what=='isbn':
-        result = isbnlib.meta(isbn, service='default')
+        result = isbnlib.meta(identifier, service='default')
 
     return False
 
