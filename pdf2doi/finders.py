@@ -164,7 +164,7 @@ def validate(identifier,what='doi'):
     elif what=='isbn':
         result = isbnlib.meta(identifier, service='default')
 
-    return False
+    return result
 
 
 def extract_arxivID_from_text(text,version=0):   
