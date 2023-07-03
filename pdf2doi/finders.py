@@ -10,6 +10,7 @@ from itertools import accumulate
 from PyPDF2 import PdfFileReader #, PdfFileWriter
 from pdfminer.high_level import extract_text
 import isbnlib
+import json
 
 import requests
 import pdftitle
@@ -164,7 +165,7 @@ def validate(identifier,what='doi'):
     elif what=='isbn':
         result = isbnlib.meta(identifier, service='default')
 
-    return result
+    return json.dumps(result)
 
 
 def extract_arxivID_from_text(text,version=0):   
